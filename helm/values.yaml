@@ -1,0 +1,26 @@
+
+global:
+  namespaces:
+    backend: hipster-backend
+
+  images:
+    adservice: "cazzzzz/hipstershop-adservice:latest"   # CI overwrites the tag
+
+  replicas:
+    adservice: 1
+
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+  ports:
+    adservice: 9555
+
+  resources:
+    adservice:
+      requests:
+        cpu: 200m
+        memory: 180Mi
+      limits:
+        cpu: 300m
+        memory: 512Mi
