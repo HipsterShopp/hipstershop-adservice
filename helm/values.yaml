@@ -1,26 +1,32 @@
 
-global:
-  namespaces:
-    backend: hipster-backend
+# ── adservice — self-contained Helm values ──────────────────
+# Templates use flat .Values.* (no global.* prefix).
+# CI updates image.tag on every successful build via yq.
 
-  images:
-    adservice: "cazzzzz/hipstershop-adservice:latest"   # CI overwrites the tag
+image:
+  repository: yampss/hipstershop-adservice
+  tag: latest
 
-  replicas:
-    adservice: 1
+namespace: hipster-backend
 
-  rollingUpdate:
-    maxUnavailable: 1
-    maxSurge: 1
+replicas: 1
 
-  ports:
-    adservice: 9555
+rollingUpdate:
+  maxUnavailable: 1
+  maxSurge: 1
 
-  resources:
-    adservice:
-      requests:
-        cpu: 200m
-        memory: 180Mi
-      limits:
-        cpu: 300m
-        memory: 512Mi
+service:
+  port: 9555
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 180Mi
+  limits:
+    cpu: 300m
+    memory: 512Mi
+
+probes:
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  healthPath: "/_healthz"

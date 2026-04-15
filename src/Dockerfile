@@ -2,7 +2,7 @@ FROM eclipse-temurin:24.0.2_12-jdk-noble@sha256:dacac8e9a0df0d2bd24e702b44311328
 WORKDIR /app
 COPY ["build.gradle", "gradlew", "./"]
 COPY gradle gradle
-RUN chmod +x gradlew
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN ./gradlew downloadRepos
 COPY . .
 RUN chmod +x gradlew
