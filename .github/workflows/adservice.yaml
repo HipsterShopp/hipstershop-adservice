@@ -8,7 +8,6 @@ on:
     paths:
       - 'src/**'
       - '.github/workflows/adservice.yaml'
-      - '.github/workflows/template.yaml'
   pull_request:
     branches:
       - main
@@ -16,7 +15,6 @@ on:
     paths:
       - 'src/**'
       - '.github/workflows/adservice.yaml'
-      - '.github/workflows/template.yaml'
 
 permissions:
   contents: write
