@@ -4,8 +4,8 @@
 # CI updates image.tag on every successful build via yq.
 
 image:
-  repository: cazzzzz/hipstershop-adservice
-  tag: latest        # overwritten by CI: yq e '.image.tag = "..."' -i helm/values.yaml
+  repository: yampss/hipstershop-adservice
+  tag: latest
 
 namespace: hipster-backend
 
