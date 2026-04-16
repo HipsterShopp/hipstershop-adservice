@@ -1,7 +1,7 @@
 
 image:
   repository: yampss/hipstershop-adservice
-  tag: 
+  tag: adservice-v0.0.7
 
 namespace: hipster-backend
 
