@@ -71,7 +71,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
-  # ── STEP 4: Notify on any failure ─────────────────────────────────────────
+  # ── STEP 4: Notify on any failure ────────────────────────────────────
   notify:
     needs: [sonar-and-snyk, generate-tag-and-build-image, push]
     if: always()
