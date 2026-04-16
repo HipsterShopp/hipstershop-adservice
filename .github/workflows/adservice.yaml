@@ -24,7 +24,6 @@ permissions:
 
 jobs:
 
-  # ── STEP 1: PR only — code quality gate ────────────────────────────
   sonar-and-snyk:
     if: github.event_name == 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@feature/loose-coupling
@@ -39,14 +38,6 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-
-  # ── STEP 2: Generate tag + build + trivy (PR) / skip trivy (push) ────
-  #
-  #    WHY always()? On push, sonar-and-snyk is skipped. Without always(),
-  #    GitHub auto-skips any job that needs a skipped job. always() opts
-  #    out of that behaviour so we can write our own condition below.
-  #
-  #    run_trivy evaluates to true on PR, false on push — no duplicate job needed.
   generate-tag-and-build-image:
     needs: [sonar-and-snyk]
     if: |
@@ -64,8 +55,6 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-
-  # ── STEP 3: Push to Docker Hub (push/merge only, no push on PR) ──────
   push:
     needs: [generate-tag-and-build-image]
     if: |
@@ -81,10 +70,24 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  # writes the new tag into hipstershop-helm-charts/hipstershop-micro-apps/adservice/values.yaml
+  update-helm-values:
+    needs: [push]
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref_name == 'main' &&
+      needs.push.result == 'success'
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
+    with:
+      service_name: adservice
+      image_tag: ${{ needs.push.outputs.tag }}
+      helm_values_path: hipstershop-micro-apps/adservice/values.yaml
+    secrets:
+      HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
 
-  # ── STEP 4: Notify on any failure ────────────────────────────────────
   notify:
-    needs: [sonar-and-snyk, generate-tag-and-build-image, push]
+    needs: [sonar-and-snyk, generate-tag-and-build-image, push, update-helm-values]
     if: always()
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@feature/loose-coupling
     with:
