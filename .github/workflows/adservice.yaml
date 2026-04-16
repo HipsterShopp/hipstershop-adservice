@@ -42,6 +42,7 @@ jobs:
 
   # ── STEP 2: Tag + build + trivy scan (runs on push/merge; skipped on PR) ───
   generate-tag-and-build-image:
+    needs: [sonar-and-snyk]
     if: github.event_name != 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@feature/loose-coupling
     with:
