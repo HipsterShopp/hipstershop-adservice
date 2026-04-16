@@ -1,15 +1,11 @@
 
-# ── adservice — self-contained Helm values ──────────────────
-# Templates use flat .Values.* (no global.* prefix).
-# CI updates image.tag on every successful build via yq.
-
 image:
   repository: yampss/hipstershop-adservice
   tag: latest
 
 namespace: hipster-backend
 
-replicas: 1
+replicas: 2
 
 rollingUpdate:
   maxUnavailable: 1
