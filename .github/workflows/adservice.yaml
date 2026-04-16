@@ -52,24 +52,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
-  # # ── STEP 3: Push to Docker Hub ────────────────────────────────────────────
-  # push:
-  #   needs: [generate-tag-and-build-image]
-  #   if: |
-  #     always() &&
-  #     needs.generate-tag-and-build-image.outputs.trivy_result == 'success' &&
-  #     github.event_name != 'pull_request'
-  #   uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
-  #   with:
-  #     service_name: adservice
-  #     image_tag: "${{ secrets.DOCKERHUB_USERNAME }}/hipstershop-adservice:${{ needs.generate-tag-and-build-image.outputs.tag }}"
-  #     image_latest: "${{ secrets.DOCKERHUB_USERNAME }}/hipstershop-adservice:latest"
-  #     git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
-  #     tag_exists: ${{ needs.generate-tag-and-build-image.outputs.tag_exists }}
-  #   secrets:
-  #     DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  #     DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
+  # ── STEP 3: Push to Docker Hub ────────────────────────────────────────────
   push:
     needs: [generate-tag-and-build-image]
     if: |
@@ -79,8 +62,6 @@ jobs:
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
     with:
       service_name: adservice
-      image_tag: "${{ secrets.DOCKERHUB_USERNAME }}/hipstershop-adservice:${{ needs.generate-tag-and-build-image.outputs.tag }}"
-      image_latest: "${{ secrets.DOCKERHUB_USERNAME }}/hipstershop-adservice:latest"
       git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
       tag_exists: ${{ needs.generate-tag-and-build-image.outputs.tag_exists }}
     secrets:
