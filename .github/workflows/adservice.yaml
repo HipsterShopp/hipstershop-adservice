@@ -1,5 +1,7 @@
 name: adservice CI
 
+run-name: "adservice — ${{ github.event.head_commit.message }} (${{ github.sha }})"
+
 on:
   push:
     branches:
@@ -19,11 +21,14 @@ on:
 permissions:
   contents: write
 
+
 jobs:
-  call-template:
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/template.yaml@main
+
+  # ── STEP 1: PR only — code quality gate ────────────────────────────────
+  sonar-and-snyk:
+    if: github.event_name == 'pull_request'
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@feature/loose-coupling
     with:
-      github_event_name: ${{ github.event_name }}
       service_name: adservice
       service_path: src/
       runtime: java
@@ -32,7 +37,56 @@ jobs:
     secrets:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+
+  # ── STEP 2: Tag + build + trivy scan (runs on push/merge; skipped on PR) ───
+  generate-tag-and-build-image:
+    needs: [sonar-and-snyk]
+    if: github.event_name != 'pull_request'
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@feature/loose-coupling
+    with:
+      service_name: adservice
+      service_path: src/
+    secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+
+  # ── STEP 3: Push to Docker Hub ────────────────────────────────────────────
+  push:
+    needs: [generate-tag-and-build-image]
+    if: |
+      always() &&
+      needs.generate-tag-and-build-image.outputs.trivy_result == 'success' &&
+      github.event_name != 'pull_request'
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
+    with:
+      service_name: adservice
+      git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
+      tag_exists: ${{ needs.generate-tag-and-build-image.outputs.tag_exists }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
+
+
+
+
+  # ── STEP 4: Notify on any failure ────────────────────────────────────
+  notify:
+    needs: [sonar-and-snyk, generate-tag-and-build-image, push]
+    if: always()
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@feature/loose-coupling
+    with:
+      service_name: adservice
+      git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag || 'N/A' }}
+      sonarqube_result: ${{ needs.sonar-and-snyk.outputs.sonarqube_result || 'skipped' }}
+      snyk_result: ${{ needs.sonar-and-snyk.outputs.snyk_result || 'skipped' }}
+      generate_tag_result: ${{ needs.generate-tag-and-build-image.result || 'skipped' }}
+      build_result: ${{ needs.generate-tag-and-build-image.outputs.build_result || 'skipped' }}
+      trivy_result: ${{ needs.generate-tag-and-build-image.outputs.trivy_result || 'skipped' }}
+      push_result: ${{ needs.push.outputs.push_result || 'skipped' }}
+    secrets:
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
