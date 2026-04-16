@@ -24,7 +24,7 @@ permissions:
 
 jobs:
 
-  # ── STEP 1: PR only — code quality gate ──────────────────────────────
+  # ── STEP 1: PR only — code quality gate ────────────────────────────
   sonar-and-snyk:
     if: github.event_name == 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@feature/loose-coupling
