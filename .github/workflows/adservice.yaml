@@ -41,12 +41,6 @@ jobs:
 
 
   # ── STEP 2: Generate tag + build + trivy (PR) / skip trivy (push) ────
-  #
-  #    WHY always()? On push, sonar-and-snyk is skipped. Without always(),
-  #    GitHub auto-skips any job that needs a skipped job. always() opts
-  #    out of that behaviour so we can write our own condition below.
-  #
-  #    run_trivy evaluates to true on PR, false on push — no duplicate job needed.
   generate-tag-and-build-image:
     needs: [sonar-and-snyk]
     if: |
