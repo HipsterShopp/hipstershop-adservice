@@ -70,22 +70,22 @@ jobs:
   #     DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   #     DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-push:
-    needs: [generate-tag-and-build-image]
-    # Only run if the previous workflow succeeded AND it's not a PR
-    if: |
-      github.event_name != 'pull_request' &&
-      needs.generate-tag-and-build-image.result == 'success'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      # Pass ONLY the tag; let the reusable workflow handle the registry/repo name
-      image_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
-      git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
-      tag_exists: ${{ needs.generate-tag-and-build-image.outputs.tag_exists == 'true' }}
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  push:
+      needs: [generate-tag-and-build-image]
+      # Only run if the previous workflow succeeded AND it's not a PR
+      if: |
+        github.event_name != 'pull_request' &&
+        needs.generate-tag-and-build-image.result == 'success'
+      uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
+      with:
+        service_name: adservice
+        # Pass ONLY the tag; let the reusable workflow handle the registry/repo name
+        image_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
+        git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
+        tag_exists: ${{ needs.generate-tag-and-build-image.outputs.tag_exists == 'true' }}
+      secrets:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
 
