@@ -58,4 +58,4 @@ jobs:
           ignore-unfixed: true
 
       - name: Success
-        run: echo "Build + Trivy completed successfully"
+        run: echo "Build + Trivy completed successfully....."
