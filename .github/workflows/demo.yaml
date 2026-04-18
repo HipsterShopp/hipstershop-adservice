@@ -2,6 +2,9 @@ name: Self Hosted Build + Trivy Test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/adservice
 
 env:
   SERVICE_NAME: adservice
