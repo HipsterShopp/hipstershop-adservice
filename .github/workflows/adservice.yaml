@@ -70,24 +70,24 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # writes the new tag into hipstershop-helm-charts/hipstershop-micro-apps/adservice/values.yaml
-  update-helm-values:
-    needs: [push]
-    if: |
-      always() &&
-      github.event_name == 'push' &&
-      github.ref_name == 'main' &&
-      needs.push.result == 'success'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      image_tag: ${{ needs.push.outputs.tag }}
-      helm_values_path: hipstershop-micro-apps/adservice/values.yaml
-    secrets:
-      HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
+
+  # update-helm-values:
+  #   needs: [push]
+  #   if: |
+  #     always() &&
+  #     github.event_name == 'push' &&
+  #     github.ref_name == 'main' &&
+  #     needs.push.result == 'success'
+  #   uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
+  #   with:
+  #     service_name: adservice
+  #     image_tag: ${{ needs.push.outputs.tag }}
+  #     helm_values_path: hipstershop-micro-apps/adservice/values.yaml
+  #   secrets:
+  #     HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
 
   notify:
-    needs: [sonar-and-snyk, generate-tag-and-build-image, push, update-helm-values]
+    needs: [sonar-and-snyk, generate-tag-and-build-image, push]
     if: always()
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@feature/loose-coupling
     with:
