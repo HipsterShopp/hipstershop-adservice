@@ -1,6 +1,6 @@
 name: adservice CI
 
-run-name: "adservice — ${{ github.event.head_commit.message || github.event.pull_request.title }} (${{ github.sha }})"
+run-name: "adservice — ${{ github.event.head_commit.message }} (${{ github.sha }})"
 
 on:
   push:
@@ -40,17 +40,11 @@ jobs:
 
   generate-tag-and-build-image:
     needs: [sonar-and-snyk]
-    if: |
-      always() &&
-      (
-        (github.event_name == 'pull_request' && needs.sonar-and-snyk.result == 'success') ||
-        github.event_name == 'push'
-      )
+    if: github.event_name != 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@feature/loose-coupling
     with:
       service_name: adservice
       service_path: src/
-      run_trivy: ${{ github.event_name == 'pull_request' }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -59,8 +53,8 @@ jobs:
     needs: [generate-tag-and-build-image]
     if: |
       always() &&
-      github.event_name == 'push' &&
-      needs.generate-tag-and-build-image.result == 'success'
+      needs.generate-tag-and-build-image.outputs.trivy_result == 'success' &&
+      github.event_name != 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
     with:
       service_name: adservice
@@ -70,24 +64,25 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-
-  # update-helm-values:
-  #   needs: [push]
-  #   if: |
-  #     always() &&
-  #     github.event_name == 'push' &&
-  #     github.ref_name == 'main' &&
-  #     needs.push.result == 'success'
-  #   uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
-  #   with:
-  #     service_name: adservice
-  #     image_tag: ${{ needs.push.outputs.tag }}
-  #     helm_values_path: hipstershop-micro-apps/adservice/values.yaml
-  #   secrets:
-  #     HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
+  #update helm values for devb
+  update-helm-values:
+    needs: [push, generate-tag-and-build-image]
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      github.ref_name == 'develop' &&
+      needs.push.result == 'success'
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
+    with:
+      service_name: adservice
+      image_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
+      helm_values_path: "hipstershop-micro-apps/adservice/values.dev.yaml"
+      target_branch: "develop"
+    secrets:
+      HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
 
   notify:
-    needs: [sonar-and-snyk, generate-tag-and-build-image, push]
+    needs: [sonar-and-snyk, generate-tag-and-build-image, push, update-helm-values]
     if: always()
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@feature/loose-coupling
     with:
