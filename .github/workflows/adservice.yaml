@@ -40,7 +40,7 @@ jobs:
 
   generate-tag-and-build-image:
     needs: [sonar-and-snyk]
-    if: github.event_name != 'pull_request'
+    if: always() && github.event_name != 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@feature/loose-coupling
     with:
       service_name: adservice
@@ -53,7 +53,7 @@ jobs:
     needs: [generate-tag-and-build-image]
     if: |
       always() &&
-      needs.generate-tag-and-build-image.outputs.trivy_result == 'success' &&
+      needs.generate-tag-and-build-image.result == 'success' &&
       github.event_name != 'pull_request'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
     with:
