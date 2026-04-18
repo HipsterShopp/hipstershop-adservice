@@ -1,78 +1,58 @@
-name: adservice CI
-
-run-name: "adservice — ${{ github.event.head_commit.message || github.event.pull_request.title }} (${{ github.sha }})"
+name: Self Hosted Build + Trivy Test
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'src/**'
-      - '.github/workflows/adservice.yaml'
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'src/**'
-      - '.github/workflows/adservice.yaml'
+  workflow_dispatch:
 
-permissions:
-  contents: write
-
+env:
+  SERVICE_NAME: adservice
+  IMAGE_NAME: hipstershop-adservice
+  IMAGE_TAG: test-${{ github.run_number }}
 
 jobs:
-
-  sonar-and-snyk:
+  build-and-scan:
+    name: Build Docker Image + Trivy Scan
     runs-on: self-hosted
-    if: github.event_name == 'pull_request'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      service_path: src/
-      runtime: java
-      java-version: "21"
-      java-build-tool: "gradle"
-    secrets:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-  generate-tag-and-build-image:
-    runs-on: self-hosted
-    needs: [sonar-and-snyk]
-    if: |
-      always() &&
-      (
-        (github.event_name == 'pull_request' && needs.sonar-and-snyk.result == 'success') ||
-        github.event_name == 'push'
-      )
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      service_path: src/
-      run_trivy: ${{ github.event_name == 'pull_request' }}
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
+      - name: Runner Info
+        run: |
+          echo "Runner: $RUNNER_NAME"
+          hostname
+          whoami
 
+      - name: Docker Version
+        run: |
+          docker --version
+          docker ps
 
+      - name: Build Docker Image
+        run: |
+          docker build -t $IMAGE_NAME:$IMAGE_TAG ./src
 
-  notify:
-    runs-on: self-hosted
-    needs: [sonar-and-snyk, generate-tag-and-build-image, push]
-    if: always()
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag || 'N/A' }}
-      sonarqube_result: ${{ needs.sonar-and-snyk.outputs.sonarqube_result || 'skipped' }}
-      snyk_result: ${{ needs.sonar-and-snyk.outputs.snyk_result || 'skipped' }}
-      generate_tag_result: ${{ needs.generate-tag-and-build-image.result || 'skipped' }}
-      build_result: ${{ needs.generate-tag-and-build-image.outputs.build_result || 'skipped' }}
-      trivy_result: ${{ needs.generate-tag-and-build-image.outputs.trivy_result || 'skipped' }}
-      push_result: ${{ needs.push.outputs.push_result || 'skipped' }}
-    secrets:
-      SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+      - name: Verify Built Image
+        run: docker images | grep $IMAGE_NAME
+
+      - name: Save Docker Image Artifact
+        run: docker save $IMAGE_NAME:$IMAGE_TAG -o /tmp/image.tar
+
+      - name: Upload Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ env.SERVICE_NAME }}
+          path: /tmp/image.tar
+          retention-days: 1
+
+      - name: Run Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Success
+        run: echo "Build + Trivy completed successfully"
