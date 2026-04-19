@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  packages: write   # required to push to ghcr.io
 
 
 jobs:
@@ -60,6 +61,7 @@ jobs:
     if: |
       always() &&
       github.event_name == 'push' &&
+      github.ref_name == 'develop' &&
       needs.generate-tag-and-build-image.result == 'success'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
     with:
@@ -69,6 +71,44 @@ jobs:
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # ── PROD ONLY: re-tag built image and push to GHCR (ghcr.io) ────────────
+  # Dev still uses DockerHub via the 'push' job above.
+  # GHCR package must be set to PUBLIC in GitHub Package settings.
+  push-to-ghcr:
+    needs: [generate-tag-and-build-image]
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref_name == 'main' &&
+      needs.generate-tag-and-build-image.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      push_result: ${{ steps.push.outcome }}
+    steps:
+      - name: Login to DockerHub (pull source image)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR (push destination)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Pull from DockerHub, re-tag, push to GHCR
+        id: push
+        run: |
+          TAG=${{ needs.generate-tag-and-build-image.outputs.tag }}
+          SRC="yampss/hipstershop-adservice:${TAG}"
+          DST="ghcr.io/${{ github.repository_owner }}/hipstershop-adservice:${TAG}"
+          docker pull ${SRC}
+          docker tag  ${SRC} ${DST}
+          docker push ${DST}
+          echo "✅ Pushed ${DST}"
 
 
   # update helm values for dev
@@ -89,31 +129,48 @@ jobs:
       HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
 
   prod-approval-gate:
-    needs: [push, generate-tag-and-build-image]
+    needs: [push-to-ghcr, generate-tag-and-build-image]
     if: |
       always() &&
       github.event_name != 'pull_request' &&
       github.ref_name == 'main' &&
-      needs.push.result == 'success'
+      needs.push-to-ghcr.result == 'success'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Approved — proceeding to update Helm chart for Production
+      - name: Approved — proceeding to update Helm chart for Production (GHCR image)
         run: echo "Production deployment approved for tag ${{ needs.generate-tag-and-build-image.outputs.tag }}"
 
+  # Inline prod helm update — uses ghcr.io prefix (not DockerHub yampss/ prefix)
   update-helm-values-prod:
     needs: [prod-approval-gate, generate-tag-and-build-image]
     if: |
       always() &&
       needs.prod-approval-gate.result == 'success'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/helm-updater-job.yaml@feature/loose-coupling
-    with:
-      service_name: adservice
-      image_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
-      helm_values_path: "hipstershop-micro-apps/adservice/values.prod.yaml"
-      target_branch: "main"
-    secrets:
-      HELM_CHARTS_TOKEN: ${{ secrets.HELM_CHARTS_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helm-charts repo
+        uses: actions/checkout@v4
+        with:
+          repository: HipsterShopp/hipstershop-helm-charts
+          ref: main
+          token: ${{ secrets.HELM_CHARTS_TOKEN }}
+
+      - name: Update adservice image tag in values.prod.yaml (ghcr.io)
+        run: |
+          TAG=${{ needs.generate-tag-and-build-image.outputs.tag }}
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          sed -i "s|ghcr.io/${OWNER}/hipstershop-adservice:[^\"]*|ghcr.io/${OWNER}/hipstershop-adservice:${TAG}|g" \
+            hipstershop-micro-apps/adservice/values.prod.yaml
+          echo "✅ Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
+
+      - name: Commit and push updated values.prod.yaml
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions<41898282+github-actions[bot]@users.noreply.github.com>"
+          git add hipstershop-micro-apps/adservice/values.prod.yaml
+          git diff --cached --quiet || git commit -m "chore(adservice): update prod image tag to ${{ needs.generate-tag-and-build-image.outputs.tag }} (ghcr.io)"
+          git push
 
   notify:
     needs: [sonar-and-snyk, generate-tag-and-build-image, push, update-helm-values-dev, update-helm-values-prod]
