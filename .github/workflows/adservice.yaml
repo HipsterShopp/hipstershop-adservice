@@ -103,11 +103,12 @@ jobs:
         run: |
           TAG=${{ needs.generate-tag-and-build-image.outputs.tag }}
           SRC="yampss/hipstershop-adservice:${TAG}"
-          DST="ghcr.io/${{ github.repository_owner }}/hipstershop-adservice:${TAG}"
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          DST="ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
           docker pull ${SRC}
           docker tag  ${SRC} ${DST}
           docker push ${DST}
-          echo "✅ Pushed ${DST}"
+          echo "Pushed ${DST}"
 
 
   # update helm values for dev
