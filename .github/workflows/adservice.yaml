@@ -26,7 +26,7 @@ jobs:
 
   sonar-and-snyk:
     if: github.event_name == 'pull_request'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@main
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/sonar-and-snyk.yaml@loose-coupling
     with:
       service_name: adservice
       service_path: src/
@@ -46,7 +46,7 @@ jobs:
         (github.event_name == 'pull_request' && needs.sonar-and-snyk.result == 'success') ||
         github.event_name == 'push'
       )
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@main
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/generate-tag-and-build-image-trivy.yaml@loose-coupling
     with:
       service_name: adservice
       service_path: src/
@@ -61,7 +61,7 @@ jobs:
       always() &&
       github.event_name == 'push' &&
       needs.generate-tag-and-build-image.result == 'success'
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@main
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@loose-coupling
     with:
       service_name: adservice
       git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag }}
@@ -108,7 +108,7 @@ jobs:
   notify:
     needs: [sonar-and-snyk, generate-tag-and-build-image, push, update-helm-values-dev, update-helm-values-prod]
     if: always()
-    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@main  # ← change from feature/loose-coupling to main
+    uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/notify.yaml@loose-coupling  # ← change from feature/loose-coupling to main
     with:
       service_name: adservice
       git_tag: ${{ needs.generate-tag-and-build-image.outputs.tag || 'N/A' }}
