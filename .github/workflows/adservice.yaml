@@ -61,7 +61,6 @@ jobs:
     if: |
       always() &&
       github.event_name == 'push' &&
-      github.ref_name == 'develop' &&
       needs.generate-tag-and-build-image.result == 'success'
     uses: HipsterShopp/hipstershop-shared-workflows/.github/workflows/push.yaml@feature/loose-coupling
     with:
@@ -76,12 +75,12 @@ jobs:
   # Dev still uses DockerHub via the 'push' job above.
   # GHCR package must be set to PUBLIC in GitHub Package settings.
   push-to-ghcr:
-    needs: [generate-tag-and-build-image]
+    needs: [push, generate-tag-and-build-image]
     if: |
       always() &&
       github.event_name == 'push' &&
       github.ref_name == 'main' &&
-      needs.generate-tag-and-build-image.result == 'success'
+      needs.push.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       push_result: ${{ steps.push.outcome }}
@@ -162,7 +161,7 @@ jobs:
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           sed -i "s|ghcr.io/${OWNER}/hipstershop-adservice:[^\"]*|ghcr.io/${OWNER}/hipstershop-adservice:${TAG}|g" \
             hipstershop-micro-apps/adservice/values.prod.yaml
-          echo "✅ Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
+          echo " Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
 
       - name: Commit and push updated values.prod.yaml
         run: |
