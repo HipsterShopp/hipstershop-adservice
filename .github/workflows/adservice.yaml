@@ -160,9 +160,13 @@ jobs:
         run: |
           TAG=${{ needs.generate-tag-and-build-image.outputs.tag }}
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          sed -i "s|ghcr.io/${OWNER}/hipstershop-adservice:[^\"]*|ghcr.io/${OWNER}/hipstershop-adservice:${TAG}|g" \
+          # Use [^/]* to match ANY existing org name — prevents silent no-op
+          # if the org name in the file ever differs from the computed OWNER.
+          sed -i "s|ghcr.io/[^/]*/hipstershop-adservice:[^\"]*|ghcr.io/${OWNER}/hipstershop-adservice:${TAG}|g" \
             hipstershop-micro-apps/adservice/values.prod.yaml
-          echo " Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
+          echo "Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
+          # Verify the update actually landed
+          grep "adservice:" hipstershop-micro-apps/adservice/values.prod.yaml
 
       - name: Commit and push updated values.prod.yaml
         run: |
