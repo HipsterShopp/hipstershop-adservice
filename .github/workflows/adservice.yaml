@@ -20,7 +20,7 @@ on:
 
 permissions:
   contents: write
-  packages: write   # required to push to ghcr.io
+  packages: write   
 
 
 jobs:
@@ -71,9 +71,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # ── PROD ONLY: re-tag built image and push to GHCR (ghcr.io) ────────────
-  # Dev still uses DockerHub via the 'push' job above.
-  # GHCR package must be set to PUBLIC in GitHub Package settings.
+
   push-to-ghcr:
     needs: [push, generate-tag-and-build-image]
     if: |
@@ -85,14 +83,12 @@ jobs:
     outputs:
       push_result: ${{ steps.push.outcome }}
     steps:
-      - name: Login to DockerHub (pull source image)
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GHCR (push destination)
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -111,7 +107,6 @@ jobs:
           echo "Pushed ${DST}"
 
 
-  # update helm values for dev
   update-helm-values-dev:
     needs: [push, generate-tag-and-build-image]
     if: |
@@ -141,7 +136,7 @@ jobs:
       - name: Approved — proceeding to update Helm chart for Production (GHCR image)
         run: echo "Production deployment approved for tag ${{ needs.generate-tag-and-build-image.outputs.tag }}"
 
-  # Inline prod helm update — uses ghcr.io prefix (not DockerHub yampss/ prefix)
+
   update-helm-values-prod:
     needs: [prod-approval-gate, generate-tag-and-build-image]
     if: |
@@ -160,12 +155,9 @@ jobs:
         run: |
           TAG=${{ needs.generate-tag-and-build-image.outputs.tag }}
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          # Use [^/]* to match ANY existing org name — prevents silent no-op
-          # if the org name in the file ever differs from the computed OWNER.
           sed -i "s|ghcr.io/[^/]*/hipstershop-adservice:[^\"]*|ghcr.io/${OWNER}/hipstershop-adservice:${TAG}|g" \
             hipstershop-micro-apps/adservice/values.prod.yaml
           echo "Updated values.prod.yaml to ghcr.io/${OWNER}/hipstershop-adservice:${TAG}"
-          # Verify the update actually landed
           grep "adservice:" hipstershop-micro-apps/adservice/values.prod.yaml
 
       - name: Commit and push updated values.prod.yaml
