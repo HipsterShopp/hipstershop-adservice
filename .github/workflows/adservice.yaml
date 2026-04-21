@@ -20,7 +20,7 @@ on:
 
 permissions:
   contents: write
-  packages: write   # required to push to ghcr.io
+  packages: write
 
 
 jobs:
@@ -71,9 +71,6 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  # ── PROD ONLY: re-tag built image and push to GHCR (ghcr.io) ────────────
-  # Dev still uses DockerHub via the 'push' job above.
-  # GHCR package must be set to PUBLIC in GitHub Package settings.
   push-to-ghcr:
     needs: [push, generate-tag-and-build-image]
     if: |
@@ -111,7 +108,6 @@ jobs:
           echo "Pushed ${DST}"
 
 
-  # update helm values for dev
   update-helm-values-dev:
     needs: [push, generate-tag-and-build-image]
     if: |
@@ -141,7 +137,6 @@ jobs:
       - name: Approved — proceeding to update Helm chart for Production (GHCR image)
         run: echo "Production deployment approved for tag ${{ needs.generate-tag-and-build-image.outputs.tag }}"
 
-  # Inline prod helm update — uses ghcr.io prefix (not DockerHub yampss/ prefix)
   update-helm-values-prod:
     needs: [prod-approval-gate, generate-tag-and-build-image]
     if: |
